@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-swago is a planned Go-native CMS inspired by Wagtail (Django). **As of 2026-10-22 this repo contains no code** — only two planning documents (`docs/DESIGN.md`, `docs/FEATURE_MAP.md`) and a single `init` commit plus design-doc commits on `main`. There is no `go.mod`, no source tree, no tests, no build config, no CLI binary yet.
+swago is a planned Go-native CMS inspired by Wagtail (Django). **As of 2026-10-23 the repo holds the foundation only**: `tenant/` (scoping, composite FKs), `schema/` (core Ent `Page`), `tree/` (treebeard paths), `db/` (SQLite/Postgres opener) and `examples/site/` (the dogfood project, with tests on SQLite and Postgres). No page-tree service, routing, templ rendering, admin or CLI yet. Run `go test ./...`; set `SWAGO_TEST_POSTGRES=postgres://user@host:port/` (databases `swago_test` and `swago_dev`) to include Postgres. Regenerate with `go generate` in `examples/site/ent`.
 
 The goal is explicitly a **rethink, not a port**: no Wagtail API/DB compatibility is promised. Page types are Go structs checked at compile time (not Python runtime metaclasses); extensions are compiled-in Go interfaces (not monkey-patched hooks); the admin is server-rendered templ + htmx (not a Draftail SPA). Deployment target is a single static binary.
 

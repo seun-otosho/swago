@@ -1,0 +1,26 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env: { POSTGRES_USER: swago, POSTGRES_HOST_AUTH_METHOD: trust }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U swago" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - run: |
+          for d in swago_test swago_dev; do psql -h localhost -U swago -d postgres -c "create database $d"; done
+      - name: generated code is current
+        run: |
+          (cd examples/site/ent && go generate .)
+          git diff --exit-code
+      - run: go vet ./...
+      - run: go test ./...
+        env:
+          SWAGO_TEST_POSTGRES: postgres://swago@localhost:5432/
