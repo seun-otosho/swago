@@ -6,6 +6,7 @@ import (
 	"github.com/seun-otosho/swago/examples/site/ent/article"
 	"github.com/seun-otosho/swago/examples/site/ent/page"
 	"github.com/seun-otosho/swago/examples/site/ent/schema"
+	"github.com/seun-otosho/swago/examples/site/ent/site"
 )
 
 // The init function reads all schema descriptors with runtime code
@@ -56,6 +57,25 @@ func init() {
 	pageDescType := pageFields[6].Descriptor()
 	// page.TypeValidator is a validator for the "type" field. It is called by the builders before save.
 	page.TypeValidator = pageDescType.Validators[0].(func(string) error)
+	siteMixin := schema.Site{}.Mixin()
+	siteMixinHooks0 := siteMixin[0].Hooks()
+	site.Hooks[0] = siteMixinHooks0[0]
+	siteMixinInters0 := siteMixin[0].Interceptors()
+	site.Interceptors[0] = siteMixinInters0[0]
+	siteFields := schema.Site{}.Fields()
+	_ = siteFields
+	// siteDescHostname is the schema descriptor for hostname field.
+	siteDescHostname := siteFields[0].Descriptor()
+	// site.HostnameValidator is a validator for the "hostname" field. It is called by the builders before save.
+	site.HostnameValidator = siteDescHostname.Validators[0].(func(string) error)
+	// siteDescPort is the schema descriptor for port field.
+	siteDescPort := siteFields[1].Descriptor()
+	// site.DefaultPort holds the default value on creation for the port field.
+	site.DefaultPort = siteDescPort.Default.(int)
+	// siteDescIsDefaultSite is the schema descriptor for is_default_site field.
+	siteDescIsDefaultSite := siteFields[3].Descriptor()
+	// site.DefaultIsDefaultSite holds the default value on creation for the is_default_site field.
+	site.DefaultIsDefaultSite = siteDescIsDefaultSite.Default.(bool)
 }
 
 const (

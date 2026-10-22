@@ -60,13 +60,46 @@ var (
 			},
 		},
 	}
+	// SitesColumns holds the columns for the "sites" table.
+	SitesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "tenant_id", Type: field.TypeInt},
+		{Name: "hostname", Type: field.TypeString},
+		{Name: "port", Type: field.TypeInt, Default: 80},
+		{Name: "site_name", Type: field.TypeString, Nullable: true},
+		{Name: "is_default_site", Type: field.TypeBool, Default: false},
+		{Name: "site_root_page", Type: field.TypeInt},
+	}
+	// SitesTable holds the schema information for the "sites" table.
+	SitesTable = &schema.Table{
+		Name:       "sites",
+		Columns:    SitesColumns,
+		PrimaryKey: []*schema.Column{SitesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "sites_pages_root_page",
+				Columns:    []*schema.Column{SitesColumns[6]},
+				RefColumns: []*schema.Column{PagesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "site_hostname_port",
+				Unique:  true,
+				Columns: []*schema.Column{SitesColumns[2], SitesColumns[3]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		ArticlesTable,
 		PagesTable,
+		SitesTable,
 	}
 )
 
 func init() {
 	ArticlesTable.ForeignKeys[0].RefTable = PagesTable
+	SitesTable.ForeignKeys[0].RefTable = PagesTable
 }

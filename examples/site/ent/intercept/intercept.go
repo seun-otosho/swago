@@ -11,6 +11,7 @@ import (
 	"github.com/seun-otosho/swago/examples/site/ent/article"
 	"github.com/seun-otosho/swago/examples/site/ent/page"
 	"github.com/seun-otosho/swago/examples/site/ent/predicate"
+	"github.com/seun-otosho/swago/examples/site/ent/site"
 )
 
 // The Query interface represents an operation that queries a graph.
@@ -123,6 +124,33 @@ func (f TraversePage) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.PageQuery", q)
 }
 
+// The SiteFunc type is an adapter to allow the use of ordinary function as a Querier.
+type SiteFunc func(context.Context, *ent.SiteQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f SiteFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.SiteQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.SiteQuery", q)
+}
+
+// The TraverseSite type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseSite func(context.Context, *ent.SiteQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseSite) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseSite) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.SiteQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.SiteQuery", q)
+}
+
 // NewQuery returns the generic Query interface for the given typed query.
 func NewQuery(q ent.Query) (Query, error) {
 	switch q := q.(type) {
@@ -130,6 +158,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ArticleQuery, predicate.Article, article.OrderOption]{typ: ent.TypeArticle, tq: q}, nil
 	case *ent.PageQuery:
 		return &query[*ent.PageQuery, predicate.Page, page.OrderOption]{typ: ent.TypePage, tq: q}, nil
+	case *ent.SiteQuery:
+		return &query[*ent.SiteQuery, predicate.Site, site.OrderOption]{typ: ent.TypeSite, tq: q}, nil
 	default:
 		return nil, fmt.Errorf("unknown query type %T", q)
 	}

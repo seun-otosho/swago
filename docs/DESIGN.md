@@ -140,6 +140,41 @@ Answers review point 4. Code is in `tree/`, with the Ent-backed store in `exampl
 - **Deletes:** removing a page removes its subtree. A typed extension entity (such as `Article`) is deleted with its page through an `ON DELETE CASCADE` foreign key.
 - **Testing:** the suite runs on SQLite always and on Postgres when `SWAGO_TEST_POSTGRES` is set; CI sets it. Ent's CLI is a `tool` dependency in `go.mod` (`go tool ent`), so `go mod tidy` cannot drop it.
 
+## Sites and routing (built 2026-10-23)
+
+Answers review point 5. Code is in `routing/`, with the Ent-backed store in
+`examples/site/routing.go`; the schema is `schema.Site`.
+
+- **Matching order** is Wagtail's: a single site with this hostname regardless of port,
+  else hostname plus port, else the default site, else `routing.ErrNoSite` (a 404 at the
+  middleware).
+- **`hostname`+`port` are unique globally, not per tenant** — the one documented exception
+  to "every unique index is `(tenant_id, ...)`" (multi-tenancy's point 3). The tenant is not
+  known until a site is resolved from the request's Host header, so the lookup cannot
+  already be scoped to it. `Site` still carries `tenant.Mixin` like any other entity, so
+  every other query against it (listing a tenant's own sites in the admin) is scoped as
+  normal; only `routing.Resolve` calls `tenant.AllowWithoutTenant`, the documented escape
+  hatch, and only for this lookup.
+- **`is_default_site` is not enforced unique by the schema.** Core cannot import a
+  project's generated Ent client (the same boundary as `tree.Store`), so a hook checking
+  "is any other row already default" would need it. Enforcing it is left to the admin UI;
+  until then `routing.Store.Default` is documented to return a deterministic row (lowest
+  id) rather than an arbitrary one if more than one is set.
+- **The default site is one global fallback, not one per tenant** — Wagtail has no
+  multi-tenancy, and once no hostname matches at all there is no tenant to pick a
+  tenant-specific default from. It mainly matters for single-tenant/dev use over an
+  unmatched host or raw IP.
+- **`routing.Middleware`** resolves the site from `r.Host`, puts both the tenant
+  (`tenant.With`) and the resolved `routing.Site` (`routing.WithSite`) into the request
+  context, and 404s a request matching no site. `routing.HostPort` defaults to port 443
+  over TLS and 80 otherwise when the Host header carries none.
+- **Storage boundary:** same pattern as the page tree — `routing.Store` is a small
+  interface (`ByHostname`, `ByHostnamePort`, `Default`); each project supplies an
+  Ent-backed implementation (`examples/site/routing.go`, about 50 lines).
+- **Testing:** `examples/site/routing_test.go` covers the three-tier match order, the
+  cross-tenant hostname-uniqueness constraint, and the middleware (200 with tenant+site in
+  context, 404 on no match), on SQLite and Postgres.
+
 ## Review: gaps and open questions
 
 Review dated 2026-10-22, written against the planning-stage doc above. The core call (rethink over port) is sound, and the comparison table is the strongest part.

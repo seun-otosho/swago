@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/seun-otosho/swago/examples/site/ent/article"
 	"github.com/seun-otosho/swago/examples/site/ent/page"
+	"github.com/seun-otosho/swago/examples/site/ent/site"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -76,6 +77,7 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			article.Table: article.ValidColumn,
 			page.Table:    page.ValidColumn,
+			site.Table:    site.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

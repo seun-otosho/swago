@@ -11,3 +11,6 @@ type Article func(*sql.Selector)
 
 // Page is the predicate function for page builders.
 type Page func(*sql.Selector)
+
+// Site is the predicate function for site builders.
+type Site func(*sql.Selector)

@@ -33,6 +33,18 @@ func (f PageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PageMutation", m)
 }
 
+// The SiteFunc type is an adapter to allow the use of ordinary
+// function as Site mutator.
+type SiteFunc func(context.Context, *ent.SiteMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SiteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SiteMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SiteMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 
