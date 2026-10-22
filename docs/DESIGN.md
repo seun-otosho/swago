@@ -185,6 +185,40 @@ unmarshals the `data` JSON column into a fresh instance, for whatever renders or
 resolved page next. Not yet wired to anything that reads a resolved page end to end — that
 lands with the headless API / templ rendering step.
 
+## `swago new` scaffolding CLI (built 2026-10-23)
+
+Code is in `cmd/swago/`. `swago new [--module <path>] [--replace <path-to-swago>] <name>`
+writes a Go module to `<name>/`: `go.mod`, `main.go` (`migrate`/`serve` subcommands),
+`open.go` (client open + dev auto-migrate, identical to `examples/site/site.go`'s
+pattern), `store.go`/`routing.go` (the `tree.Store`/`routing.Store` implementations —
+DESIGN.md already said `swago new` should generate these), and `ent/schema/{page,site}.go`
+embedding the core entities. It then best-effort runs `go mod tidy`.
+
+- **`--replace`** adds a `go.mod` replace directive pointing the `swago` requirement at a
+  local checkout — needed until swago is published, since `go.mod` otherwise names a
+  version that does not exist yet. Real usage (once published) omits it.
+- **No generic `swago.New(cfg).Register(pages.Home{}, pages.Article{}).Run()` app
+  abstraction was built.** The illustrative one-liner in "Install, scaffold and extend"
+  would need core to operate generically over a project's generated Ent client, which core
+  cannot import (the same boundary `tree.Store`/`routing.Store` exist to work around), and
+  nothing built so far validates what such an `App` type would actually need to expose.
+  Building it now would be a guess. Instead the scaffolded `main.go` wires `open`/`Tree`/
+  `Routing` directly, the same pattern `examples/site` already proves out. Revisit once
+  auth and the admin land and the real shape of "what every project needs from an App" is
+  known.
+- **Only `migrate` and `serve` are implemented**, not the `generate`/`createsuperuser`
+  subcommands DESIGN.md's example lists: `generate` is just `go generate ./ent/...`, not
+  worth wrapping; `createsuperuser` needs a `User` entity, which does not exist yet (auth
+  is a later build-order step). Revisit both when their prerequisites land.
+- **`serve`'s handler is deliberately minimal** — it runs `routing.Middleware` and returns
+  JSON of the resolved `routing.Site` (proving tenant/site resolution end to end), not a
+  rendered page: there is no templ rendering yet (a later build-order step), and a scaffold
+  with no registered page types has nothing to render regardless.
+- **Testing:** `cmd/swago/scaffold_test.go` scaffolds a real project via a local
+  `--replace`, then runs `go generate`, `go build`, `go vet` and `go run . migrate` against
+  it as subprocesses — proving the generated code actually compiles and works, not just
+  that the files were written.
+
 ## Review: gaps and open questions
 
 Review dated 2026-10-22, written against the planning-stage doc above. The core call (rethink over port) is sound, and the comparison table is the strongest part.

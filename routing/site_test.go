@@ -12,9 +12,9 @@ import (
 
 // fakeStore is an in-memory Store for testing Resolve and Middleware without a database.
 type fakeStore struct {
-	sites   []Site
-	dflt    int // index into sites, -1 for none
-	calls   []string
+	sites []Site
+	dflt  int // index into sites, -1 for none
+	calls []string
 }
 
 func (s *fakeStore) ByHostname(_ context.Context, hostname string) ([]Site, error) {

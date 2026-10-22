@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-swago is a Go-native CMS inspired by Wagtail (Django), module `github.com/seun-otosho/swago`, Apache-2.0. **As of 2026-10-23 the repo has the page tree, site routing and page-type registry built**: tenant scoping, core `Page`/`Site` entities, a transactional tree service (add/move/delete), host-to-tenant-to-page routing middleware, a page-type registry, and a dogfood example project. No templ rendering, admin UI, or CLI (`swago new`/`serve`/`migrate`) yet.
+swago is a Go-native CMS inspired by Wagtail (Django), module `github.com/seun-otosho/swago`, Apache-2.0. **As of 2026-10-23 the repo has the page tree, site routing, page-type registry and a scaffolding CLI built**: tenant scoping, core `Page`/`Site` entities, a transactional tree service (add/move/delete), host-to-tenant-to-page routing middleware, a page-type registry, `swago new` (scaffolds a runnable project), and a dogfood example project. No templ rendering or admin UI yet.
 
 The goal is explicitly a **rethink, not a port**: no Wagtail API/DB compatibility is promised. Page types are Go structs checked at compile time (not Python runtime metaclasses); extensions are compiled-in Go interfaces (not monkey-patched hooks); the admin will be server-rendered templ + htmx (not a Draftail SPA). Deployment target is a single cgo-free binary.
 
@@ -37,7 +37,7 @@ flowchart TD
 - **Migrations**: Ent auto-migration (`client.Schema.Create`, dev) vs. Atlas versioned SQL (`client.Schema.Diff` with codegen feature `sql/versioned-migration`, production) — both always take `tenant.CompositeFKs`. Spike 3 proved versioned migrations work without the separate Atlas CLI. Ent does not detect renames (looks like drop+add) — fix by hand with `StorageKey` or a `schema.WithDiffHook`.
 - **No many-to-many edges in core** (Spike 2 finding): they create a join table with no `tenant_id`, defeating the mixin. Use a through-entity carrying `tenant.Mixin` instead.
 - **Templates/admin/blocks**: templ + htmx, StreamField-style block JSON — decided in DESIGN.md but not yet implemented; no `templates/`, `blocks/`, or admin code exists in this repo yet.
-- **Build order** (DESIGN.md "Build order"): foundations, page tree, sites/routing and the page-type registry are done → blocks + revisions/draft-publish → headless API + templ rendering → auth/permissions → admin UI → images/documents/search/i18n/workflows.
+- **Build order** (DESIGN.md "Build order"): foundations, page tree, sites/routing, the page-type registry and the `swago new` scaffolding CLI are done → blocks + revisions/draft-publish → headless API + templ rendering → auth/permissions → admin UI → images/documents/search/i18n/workflows.
 
 ## Key Directories
 
@@ -49,11 +49,12 @@ flowchart TD
 | `routing/` | `site.go` — `Resolve`, `Middleware`, `Store` interface for host-to-tenant-to-site resolution; DB-free, tested against a fake `Store` |
 | `page/` | `registry.go` — `Page` interface + `Register[T]()`/`New`/`Decode`, the page-type registry |
 | `db/` | `db.Open(url)` — dialect-detecting opener for `sqlite://` / `postgres://` URLs, wraps the pure-Go `modernc.org/sqlite` and `pgx` drivers for Ent |
+| `cmd/swago/` | The installable `swago` CLI: `main.go` (`new` subcommand, flag parsing), the file templates it writes (`go.mod`, `main.go`, `open.go`, `store.go`, `routing.go`, `ent/schema/*.go`) as Go string constants, `scaffold_test.go` (builds/vets/migrates a real scaffolded output) |
 | `examples/site/` | The reference scaffolded project ("the shape `swago new` scaffolds"): `site.go` (client `Open`, `QueryAdapter` wiring), `store.go` (Ent-backed `tree.Store`), `routing.go` (Ent-backed `routing.Store`), `site_test.go`/`tree_test.go`/`routing_test.go` (test suites), `ent/schema/` (project entities: `page.go`, `article.go`, `site.go`), `ent/` (generated Ent client — **do not hand-edit**, regenerate with `go generate`) |
 | `docs/` | `DESIGN.md` (decisions + rationale + spike results), `FEATURE_MAP.md` (Wagtail parity tracker + build order) |
 | `.github/workflows/` | `ci.yml` — generated-code-is-current check, `go vet`, `go test` against SQLite + a Postgres 17 service container |
 
-Directories named in DESIGN.md's scaffold ("Install, scaffold and extend") but **not yet built**: `pages/`, `blocks/`, `templates/`, `migrations/`, a `swago` CLI (`swago new`/`serve`/`migrate`/`generate`/`createsuperuser`) — don't assume these exist.
+Directories named in DESIGN.md's scaffold but **not yet built**: `pages/`, `blocks/`, `templates/`, `migrations/` (as standalone project directories — scaffolded `ent/schema/` exists), and the `swago serve`/`migrate` **subcommands of `Run()`** (the scaffolded project's own `main.go` has `migrate`/`serve` directly; there is no generic `swago.New(cfg).Register(...).Run()` library type — see Code Conventions).
 
 ## Development Commands
 
@@ -63,11 +64,12 @@ go vet ./...                            # CI runs this
 go test ./...                           # SQLite-only by default
 SWAGO_TEST_POSTGRES=postgres://swago@localhost:5432/ go test ./...   # also runs Postgres backend
 cd examples/site/ent && go generate .   # regenerate Ent client after schema changes
+go build -o /tmp/swago ./cmd/swago && /tmp/swago new --replace "$PWD" myproject   # scaffold a test project locally
 ```
 
 `SWAGO_TEST_POSTGRES` must be a server URL ending in `/`; the tests expect two pre-existing empty databases named `swago_test` and `swago_dev` on that server (CI creates them via `.github/workflows/ci.yml`). Without the env var, Postgres subtests are skipped and only SQLite runs.
 
-No `swago` CLI, `Makefile`, or linter config exists yet — build/test/vet above are the only tooling currently wired up. `golangci-lint` with a `forbidigo` rule (banning raw SQL driver access outside `tenant`/migration packages) is a documented intent in DESIGN.md, not yet configured.
+`swago new` requires `--replace <path-to-swago>` for local development (swago is not published, so a bare `go.mod` requirement cannot resolve) — real usage once published omits it. No `Makefile` or linter config exists yet. `golangci-lint` with a `forbidigo` rule (banning raw SQL driver access outside `tenant`/migration packages) is a documented intent in DESIGN.md, not yet configured.
 
 ## Code Conventions & Common Patterns
 
@@ -81,6 +83,7 @@ No `swago` CLI, `Makefile`, or linter config exists yet — build/test/vet above
 - **No many-to-many Ent edges in core** — use a through-entity with `tenant.Mixin{}` so the join table itself is tenant-scoped.
 - **Core cannot import a project's generated Ent types** (same reason as the `tenant.QueryAdapter` indirection): any core logic that needs to query — `tree.Tree`, `routing.Resolve` — runs against a small hand-written `Store` interface, and each project supplies an Ent-backed implementation (`examples/site/store.go`, `examples/site/routing.go`). Follow this shape for new core services that need storage; don't try to make core generic over Ent's generated client.
 - **Unique indexes are normally `(tenant_id, ...)`; `schema.Site`'s `(hostname, port)` is the one documented exception** — it must be globally unique because the tenant isn't known until a site is resolved from it. Don't copy this pattern elsewhere without the same justification; every other entity's uniqueness stays tenant-prefixed.
+- **`examples/site/store.go`/`routing.go` are the source of truth `cmd/swago`'s templates copy, not the other way round.** If you change how a project's `tree.Store`/`routing.Store` implementation should look, update `examples/site` first (it's real, compiled, tested Go code), then port the change into the matching string template in `cmd/swago/main.go` — drift between them is a correctness bug `cmd/swago/scaffold_test.go` won't necessarily catch (it only proves the template compiles, not that it matches current best practice).
 
 ## Important Files
 
@@ -104,6 +107,8 @@ No `swago` CLI, `Makefile`, or linter config exists yet — build/test/vet above
 | `examples/site/tree_test.go`, `examples/site/routing_test.go` | Integration test suites for the tree service and site resolution/middleware, on SQLite and Postgres — model new storage-backed tests on these. |
 | `examples/site/ent/schema/*.go` | Reference project schema: `page.go` (embeds core `Page`), `article.go` (opt-in typed extension pattern — own entity + required unique edge to `Page`), `site.go` (embeds core `Site`). |
 | `.github/workflows/ci.yml` | CI contract: generated code must be current (`go generate` + `git diff --exit-code`), `go vet`, `go test` with a live Postgres 17 service. |
+| `cmd/swago/main.go` | The `swago new` CLI: flag parsing, `scaffold()`, and every file template (`go.mod`, `main.go`, `open.go`, `store.go`, `routing.go`, `ent/schema/*.go`) as Go string constants with `{{.Module}}`/`{{.Name}}`/`{{.Replace}}` substitution. |
+| `cmd/swago/scaffold_test.go` | Scaffolds into `t.TempDir()` with a `--replace` pointing at the checkout, then runs `go generate`/`go build`/`go vet`/`go run . migrate` on the output as subprocesses — the only way to know a template change still compiles. |
 
 ## Runtime/Tooling Preferences
 
@@ -126,4 +131,5 @@ No `swago` CLI, `Makefile`, or linter config exists yet — build/test/vet above
 - `tree/path_test.go` and `routing/site_test.go` are plain, DB-free unit tests (`routing/site_test.go` uses a fake in-memory `Store`) — follow that style for other storage-boundary packages: test the pure logic without a database, then cover the Ent-backed implementation separately in `examples/site`.
 - `examples/site/tree_test.go` and `examples/site/routing_test.go` are the reference suites for storage-backed core services: `TestTreeOperations`/`TestConcurrentSiblings` cover add/move/delete and concurrent sibling inserts; `TestSiteResolution`/`TestSiteMiddleware` cover the three-tier hostname match, the cross-tenant hostname-uniqueness constraint, and the middleware's context wiring and 404. Model new `Store`-backed services on this pairing (pure core unit test + Ent-backed integration test).
 - CI (`.github/workflows/ci.yml`) additionally requires generated Ent code to be up to date: it runs `go generate` in `examples/site/ent` and fails on any resulting diff — regenerate locally after any schema change, don't hand-edit files under `examples/site/ent/` (everything there except `ent/schema/` is generated).
+- `cmd/swago/scaffold_test.go` (`TestScaffoldBuildsAndMigrates`, ~15-20s) scaffolds a real project into `t.TempDir()` and runs `go generate`/`go build`/`go vet`/`go run . migrate` against the output as subprocesses — it will catch a template that compiles against the wrong Ent API, not just a template that renders.
 - Every new tenant-bearing schema must be exercised by the leak test (automatic via `TestEveryTableHasTenantID`) and should get its own `TestTenantIsolation`-style coverage if it introduces new edges or unique constraints.
