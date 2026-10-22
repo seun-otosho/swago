@@ -45,7 +45,7 @@ Wagtail features to reach eventually (the parity checklist): page tree, StreamFi
 - Module path and Go version. Not yet chosen.
 - Production migration tool: Atlas versioned migrations (the Ent default) vs hand-written goose files. Leaning Atlas.
 - Ent has no model inheritance, so a page type is a separate entity linked to a base page entity (composition). Settle this together with page field storage.
-- How downstream projects add page types: they run `go generate` with Ent in their own module. Decide whether the framework ships a small CLI or a documented template to make this painless.
+- How downstream projects add page types: decided, see "Install, scaffold and extend" below (a `swago` CLI scaffolds the project). Still open: how Ent codegen in the project module includes the core schemas.
 - Page field storage: multi-table inheritance vs one table with a JSON column (review point 2).
 
 Closed on 2026-10-22: templ for all templates and htmx for the whole framework, including the admin (small JS islands only where unavoidable, e.g. rich text); Ent as the ORM.
@@ -97,6 +97,18 @@ Django's `makemigrations` diffs models against the recorded migration history, w
 - Backfills run per tenant in batches, with the tenant set explicitly, so they can't cross tenants either.
 - **CI guard:** after applying all migrations to an empty database, `atlas schema diff` against the Ent schema must be empty. If a developer changes a schema without generating a migration, CI fails. Destructive steps (drop, type narrowing) are flagged by Atlas lint and need an explicit approval comment in the migration.
 - Test each migration on a copy of realistic data, on all three databases, in the CI matrix.
+
+## Install, scaffold and extend
+
+Wagtail is installed as a package, `wagtail start mysite` creates a project, and the project extends it with its own page types, blocks and templates. swago works the same way from day one. Added 2026-10-22.
+
+- **Two artifacts:** `swago` is a Go module (library) that projects import, plus a `swago` CLI installed with `go install`. The CLI and the library share one version.
+- **`swago new mysite`** scaffolds a Go module with: `main.go`, `pages/` (the project's page types), `blocks/`, `ent/schema/` (project entities composing the core mixins and base page entity), `templates/` (templ), `migrations/` (the single Atlas directory), and a config file. It requires `swago` in `go.mod`.
+- **`main.go` stays tiny:** something like `swago.New(cfg).Register(pages.Home{}, pages.Article{}).Run()`. `Run` provides subcommands: `serve`, `migrate`, `generate`, `createsuperuser`.
+- **Extension points are explicit interfaces,** compiled into the project's binary: `Page` types, `Block` types, snippets, settings, middleware, admin hooks (menu items, views, choosers) and templ components. No runtime plugin loading and no monkey-patching.
+- **Upgrading** is a `go get` of a newer swago, then `swago migrate generate`, which writes the core changes into the project's Atlas directory for review.
+- **Dogfooding rule:** every core feature has to be reachable from a scaffolded project. The repo keeps an `examples/` project built from the same template, and CI builds and runs it.
+- **Open (spike needed):** Ent generates one client per module, so core entities and project entities have to end up in the same generated client. Candidates: the project's `entc.go` imports core schemas as a Go package, or the CLI wraps `entc` with the core schema directory attached. Prove this before the page tree is built on it.
 
 ## Review: gaps and open questions
 
