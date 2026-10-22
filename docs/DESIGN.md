@@ -175,6 +175,16 @@ Answers review point 5. Code is in `routing/`, with the Ent-backed store in
   cross-tenant hostname-uniqueness constraint, and the middleware (200 with tenant+site in
   context, 404 on no match), on SQLite and Postgres.
 
+## Page-type registry (built 2026-10-23)
+
+Code is in `page/`. A project's typed page struct implements `page.Page` (one method,
+`PageType() string`, value receiver, no field access — it is a constant type tag) and
+calls `page.Register[T]()` once, normally from `init()`. The base `schema.Page` entity's
+`type` column stores that name; `page.Decode(name, data)` looks up the registered type and
+unmarshals the `data` JSON column into a fresh instance, for whatever renders or serves a
+resolved page next. Not yet wired to anything that reads a resolved page end to end — that
+lands with the headless API / templ rendering step.
+
 ## Review: gaps and open questions
 
 Review dated 2026-10-22, written against the planning-stage doc above. The core call (rethink over port) is sound, and the comparison table is the strongest part.
