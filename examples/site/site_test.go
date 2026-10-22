@@ -24,11 +24,12 @@ import (
 // It needs two empty databases named "swago_test" and "swago_dev". Without it only SQLite runs.
 var pgBase = os.Getenv("SWAGO_TEST_POSTGRES")
 
-// dbURL returns a fresh, empty database URL for each backend.
+// backends maps each backend to a function returning a fresh, empty database URL.
 func backends(t *testing.T) map[string]func(name string) string {
+	dir := t.TempDir()
 	m := map[string]func(string) string{
 		"sqlite": func(name string) string {
-			return "sqlite://file:" + strings.NewReplacer("/", "_", " ", "_").Replace(t.Name()) + name + "?mode=memory&cache=shared"
+			return "sqlite://" + filepath.Join(dir, name+".db")
 		},
 	}
 	if pgBase != "" {

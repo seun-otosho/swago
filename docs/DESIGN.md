@@ -128,6 +128,18 @@ Wagtail is installed as a package, `wagtail start mysite` creates a project, and
   - **Versioned migrations work without the Atlas CLI.** With codegen feature `sql/versioned-migration`, `client.Schema.Diff(ctx, schema.WithDir(dir), schema.WithDialect(d), core.TenantFKs)` against an empty dev database writes `*.up.sql` and `*.down.sql` files with the composite keys, in dependency order on Postgres. The down files are generated reverse statements (drops), so they do not restore dropped data. Applying the up files to an empty database worked, and re-running the diff against the directory wrote nothing, which is the CI drift check. `swago migrate generate` can wrap this call.
   - **Still to prove:** `ON DELETE SET NULL` on a composite key would also null `tenant_id` (Postgres 15+ needs `SET NULL (col)`), so optional edges need care; renames and the expand-and-contract flow; and the Atlas CLI lint for destructive steps (not installed here, the download is large).
 
+## Page tree (built 2026-10-23)
+
+Answers review point 4. Code is in `tree/`, with the Ent-backed store in `examples/site/store.go`.
+
+- **Paths:** treebeard scheme, base-36 digits, 4 characters per level, so a node has at most 36^4 - 1 children. `depth` and `numchild` are stored on each page and kept in sync inside one transaction.
+- **Storage boundary:** core cannot import a project's generated Ent types, so `tree.Tree` runs against a small `tree.Store` interface and each project supplies an Ent-backed implementation (about 100 lines; `swago new` should generate it). The same contract tests run against every store.
+- **Slugs:** `url_path` (ancestor slugs plus the page's own, root slug included) is unique per tenant, so the database enforces unique sibling slugs. A clash returns `ErrSlugTaken`; Wagtail's automatic suffix is not copied.
+- **Concurrent sibling inserts:** `AddChild` and `Move` lock the parent row (`SELECT ... FOR UPDATE`) so inserts under one parent queue instead of racing. The unique `(tenant_id, path)` index is the backstop and conflicts are retried. On SQLite, `_txlock=immediate` makes every transaction take the write lock up front, which serializes writers (SQLite has one writer anyway); Ent refuses `FOR UPDATE` on SQLite, so the store skips it there. Without the parent lock, 8 concurrent inserts on Postgres exhausted 5 retries. Root inserts have no parent row, so they rely on retry alone.
+- **Moves:** rewrite path, depth and url_path for the moved page and every descendant, one update each, then adjust both parents' `numchild`. Moving a page under itself returns `ErrMoveIntoSelf`. A bulk SQL update by path prefix is the upgrade if big subtrees get slow.
+- **Deletes:** removing a page removes its subtree. A typed extension entity (such as `Article`) is deleted with its page through an `ON DELETE CASCADE` foreign key.
+- **Testing:** the suite runs on SQLite always and on Postgres when `SWAGO_TEST_POSTGRES` is set; CI sets it. Ent's CLI is a `tool` dependency in `go.mod` (`go tool ent`), so `go mod tidy` cannot drop it.
+
 ## Review: gaps and open questions
 
 Review dated 2026-10-22, written against the planning-stage doc above. The core call (rethink over port) is sound, and the comparison table is the strongest part.

@@ -13,7 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const sqlitePragmas = "_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+const sqlitePragmas = "_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate"
 
 // Open connects to url: "sqlite://path/to/file.db" (or "sqlite://file:name?mode=memory&cache=shared")
 // or "postgres://user@host/db". Pass the result to ent.Driver.

@@ -25,7 +25,7 @@ var (
 				Symbol:     "articles_pages_page",
 				Columns:    []*schema.Column{ArticlesColumns[3]},
 				RefColumns: []*schema.Column{PagesColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 		},
 	}
@@ -55,7 +55,7 @@ var (
 			},
 			{
 				Name:    "page_tenant_id_url_path",
-				Unique:  false,
+				Unique:  true,
 				Columns: []*schema.Column{PagesColumns[1], PagesColumns[7]},
 			},
 		},

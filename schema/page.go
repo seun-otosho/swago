@@ -33,6 +33,6 @@ func (Page) Fields() []ent.Field {
 func (Page) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("tenant_id", "path").Unique(),
-		index.Fields("tenant_id", "url_path"),
+		index.Fields("tenant_id", "url_path").Unique(), // also makes sibling slugs unique
 	}
 }
