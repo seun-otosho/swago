@@ -30,6 +30,7 @@ Status means: **Designed** = DESIGN.md makes a concrete decision; **Named** = li
 | Localization (i18n) | Named | `locale` and `translation_key` on pages, as in Wagtail core. Admin strings via `go-i18n`. |
 | Form builder | Named | A form page type with field blocks and a submissions table, plus CSV export. |
 | Snippets | Named | Any registered struct gets admin list, edit and chooser views. |
+| Application records (CMS as data framework) | Designed | Plain Ent entities with real columns and the `tenant_id` mixin, registered with the admin through a model-registration interface (list, filter, edit, chooser). Pages stay a base entity plus JSON `data`, with an opt-in typed extension entity. See DESIGN.md. |
 | Install, scaffold and extend (`wagtail start`) | Designed | `swago` library plus CLI; `swago new` scaffolds a project that registers its own pages and blocks. Ent codegen across core and project schemas needs a spike. See DESIGN.md. |
 | Multi-tenancy | Designed | Shared database with `tenant_id` on every content table via an Ent mixin, enforced by interceptors, privacy rules and composite keys, with a leak test over every model. Scope sits behind `tenant.Scope`. |
 | Rich text | Not covered | Store HTML with Wagtail-style link references (`<a linktype="page" id="3">`), resolved at render. Sanitize with `bluemonday`. Editor: a JS editor (Tiptap or Trix) mounted inside the htmx form. |

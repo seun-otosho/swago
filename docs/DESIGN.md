@@ -33,6 +33,8 @@ Wagtail features to reach eventually (the parity checklist): page tree, StreamFi
 
 ## Build order
 
+Decided 2026-10-22: architecture first. Getting the framework foundations right matters more than reaching an editable site early, so content editing can wait. Spikes come before the page tree: Ent codegen across core and scaffolded-project schemas, the tenant mixin and leak test, and the StreamField editor under htmx. The list below is the feature order after the foundations; the review's thin vertical slice is not being followed.
+
 1. Page tree, plus typed page models registered in code.
 2. Blocks (the StreamField equivalent) and revisions with draft/publish.
 3. Headless JSON API and server-rendered templates.
@@ -42,11 +44,15 @@ Wagtail features to reach eventually (the parity checklist): page tree, StreamFi
 
 ## Open questions
 
-- Module path and Go version. Not yet chosen.
+- Decided 2026-10-22: Go 1.25 or later; module path `github.com/seun-otosho/swago`. Public repo under the Apache-2.0 licence (permits use and contribution, with a patent grant), because the framework will be opened to outside contributors. Single-tenant installs use one implicit tenant, resolved from hostname through the site. SQLite and Postgres ship first, MySQL/MariaDB later. Materialized paths use treebeard's scheme: base-36 alphabet, 4-character steps.
 - Production migration tool: Atlas versioned migrations (the Ent default) vs hand-written goose files. Leaning Atlas.
 - Ent has no model inheritance, so a page type is a separate entity linked to a base page entity (composition). Settle this together with page field storage.
 - How downstream projects add page types: decided, see "Install, scaffold and extend" below (a `swago` CLI scaffolds the project). Still open: how Ent codegen in the project module includes the core schemas.
-- Page field storage: multi-table inheritance vs one table with a JSON column (review point 2).
+- Decided 2026-10-22, page field storage (review point 2): a three-way split, all on Ent and Atlas.
+  1. **Pages (default):** one base `pages` entity holds tree, URL, publish state and `tenant_id`, plus a JSON `data` column for page-type fields. No per-type migrations, and it matches the revision snapshot. Promote a field to a real column only when it must be queried or indexed.
+  2. **Typed extension (opt-in):** a page type that needs queryable fields can have its own Ent entity linked to the base page (composition). Not built at first, but the `Page` interface must leave room for it.
+  3. **Application records:** data at scale (orders, products, customers, readings) are not pages and not JSON. They are plain Ent entities with real columns and indexes, carry the `tenant_id` mixin, and are registered with the admin through a model-registration interface (snippets and more: list, filter, edit, chooser).
+  Why: Ent has no inheritance, JSON-field indexes differ between SQLite and Postgres (and core avoids Postgres-only features), and millions of records need real columns and constraints.
 
 Closed on 2026-10-22: templ for all templates and htmx for the whole framework, including the admin (small JS islands only where unavoidable, e.g. rich text); Ent as the ORM.
 
