@@ -333,6 +333,7 @@ func toRoutingSite(r *ent.Site) routing.Site {
 	return routing.Site{
 		ID: r.ID, TenantID: r.TenantID, Hostname: r.Hostname, Port: r.Port,
 		SiteName: r.SiteName, IsDefault: r.IsDefaultSite, RootPageID: r.Edges.RootPage.ID,
+		RootURLPath: r.Edges.RootPage.URLPath,
 	}
 }
 
@@ -378,14 +379,17 @@ const mainTmpl = `package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/seun-otosho/swago/render"
 	"github.com/seun-otosho/swago/routing"
+	"{{.Module}}/ent"
+	"{{.Module}}/ent/page"
 )
 
 func main() {
@@ -417,9 +421,27 @@ func main() {
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			s, _ := routing.FromContext(r.Context())
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(s)
+			s, ok := routing.FromContext(r.Context())
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			// The site's root page url_path (e.g. "/home/") is the base; a request path
+			// is served relative to it, the way Wagtail's Site.root_page works.
+			fullPath := s.RootURLPath + strings.TrimPrefix(r.URL.Path, "/")
+			p, err := c.Page.Query().Where(page.URLPath(fullPath)).Only(r.Context())
+			switch {
+			case ent.IsNotFound(err):
+				http.NotFound(w, r)
+				return
+			case err != nil:
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			if err := render.Fallback(p.Title, p.Type).Render(r.Context(), w); err != nil {
+				log.Println("render:", err)
+			}
 		})
 
 		log.Println("listening on", *addr)

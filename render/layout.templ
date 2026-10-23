@@ -1,0 +1,29 @@
+// Package render holds swago's base templ components: a page shell every rendered page
+// goes through, and a generic fallback for a page type with no project-specific component
+// registered. A page type that wants its own markup defines its own templ component and
+// wraps it in Layout; Fallback is only what's shown until that lands.
+package render
+
+// Layout is the HTML shell every rendered page goes through.
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<title>{ title }</title>
+		</head>
+		<body>
+			{ children... }
+		</body>
+	</html>
+}
+
+// Fallback renders a page with no project-specific component: just its title and type,
+// inside Layout. A project registers its own templ component per page type (not built
+// yet, see DESIGN.md) to replace this.
+templ Fallback(title, pageType string) {
+	@Layout(title) {
+		<h1>{ title }</h1>
+		<p>Page type: { pageType }</p>
+	}
+}

@@ -210,14 +210,47 @@ embedding the core entities. It then best-effort runs `go mod tidy`.
   subcommands DESIGN.md's example lists: `generate` is just `go generate ./ent/...`, not
   worth wrapping; `createsuperuser` needs a `User` entity, which does not exist yet (auth
   is a later build-order step). Revisit both when their prerequisites land.
-- **`serve`'s handler is deliberately minimal** — it runs `routing.Middleware` and returns
-  JSON of the resolved `routing.Site` (proving tenant/site resolution end to end), not a
-  rendered page: there is no templ rendering yet (a later build-order step), and a scaffold
-  with no registered page types has nothing to render regardless.
+- **`serve`'s handler renders a page through `render.Fallback`** (hostname → site → tenant
+  → URL-relative page lookup → templ), not just a JSON acknowledgement of the matched site
+  — see "Front-end rendering with templ" below.
 - **Testing:** `cmd/swago/scaffold_test.go` scaffolds a real project via a local
-  `--replace`, then runs `go generate`, `go build`, `go vet` and `go run . migrate` against
-  it as subprocesses — proving the generated code actually compiles and works, not just
-  that the files were written.
+  `--replace`, then runs `go generate`, `go build`, `go vet`, `go run . migrate`, seeds a
+  tenant/page-tree/site through the scaffold's own generated client, builds and runs the
+  binary's `serve` subcommand, and asserts the actual HTTP response — proving the
+  generated code compiles, migrates, serves and renders, not just that the files were
+  written.
+
+## Front-end rendering with templ (built 2026-10-23)
+
+Code is in `render/` (core: `Layout`, a page shell, and `Fallback`, a generic page-type
+renderer) and the scaffold's `serve` handler (`cmd/swago/main.go`'s `mainTmpl`).
+
+- **Request path to page, under a site:** a site's root page's `url_path` (e.g. `/home/`)
+  is the base a request is served relative to, the way Wagtail's `Site.root_page` works:
+  `fullPath := site.RootURLPath + strings.TrimPrefix(r.URL.Path, "/")`, then the page whose
+  `url_path` equals `fullPath` is looked up directly through the generated client (tenant
+  scoping comes for free from `routing.Middleware` already having put the tenant in the
+  request context). A request to `/` resolves the root page itself; `/blog/` resolves
+  `root.url_path + "blog/"`. No match is a 404.
+- **`routing.Site` gained a `RootURLPath` field** (the root page's `url_path`, eager-loaded
+  via the existing `WithRootPage()` call) to make this possible without an extra query.
+- **No tree.Store change.** Serving a single page by URL is a plain read, not a tree
+  mutation, so it queries the generated client directly rather than going through
+  `tree.Store` (which exists for `tree.Tree`'s transactional add/move/delete, a different
+  concern).
+- **`render.Fallback` is deliberately generic** — title and page type only. Per-page-type
+  templ components (a project's own markup, wrapped in `render.Layout`) are not built: that
+  needs the block/StreamField registry's render hook, a later build-order step. This is
+  only enough to prove the pipeline — hostname → site → tenant → page → HTML — end to end.
+- **Tooling:** `github.com/a-h/templ` is a `tool` dependency (`go tool templ generate`,
+  same pattern as `go tool ent`), not a vendored copy; `render/layout.templ` is the source,
+  `render/layout_templ.go` is generated and must be regenerated after editing the `.templ`
+  file. `.github/workflows/ci.yml`'s "generated code is current" step runs `go generate` in
+  both `examples/site/ent` and `render`, then one `git diff --exit-code` for both.
+- **Testing:** `render/render_test.go` renders `Fallback` to a buffer and asserts the HTML
+  contains the title, h1 and page type — a pure, DB-free unit test. The full request path →
+  page → HTML flow is covered by `cmd/swago/scaffold_test.go`'s seed-and-serve run (root
+  page, child page and an unmatched path, asserting status code and body).
 
 ## Review: gaps and open questions
 

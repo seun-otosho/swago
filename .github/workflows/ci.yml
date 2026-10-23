@@ -19,6 +19,7 @@ jobs:
       - name: generated code is current
         run: |
           (cd examples/site/ent && go generate .)
+          (cd render && go generate .)
           git diff --exit-code
       - run: go vet ./...
       - run: go test ./...

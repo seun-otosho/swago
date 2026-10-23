@@ -17,6 +17,7 @@ func toRoutingSite(r *ent.Site) routing.Site {
 	return routing.Site{
 		ID: r.ID, TenantID: r.TenantID, Hostname: r.Hostname, Port: r.Port,
 		SiteName: r.SiteName, IsDefault: r.IsDefaultSite, RootPageID: r.Edges.RootPage.ID,
+		RootURLPath: r.Edges.RootPage.URLPath,
 	}
 }
 

@@ -31,6 +31,9 @@ type Site struct {
 	SiteName   string
 	IsDefault  bool
 	RootPageID int
+	// RootURLPath is the root page's url_path (e.g. "/home/"); strip it from a page's own
+	// url_path to get the path this site serves that page at.
+	RootURLPath string
 }
 
 // Store is the lookup a project provides over its generated Ent client. Resolve always
