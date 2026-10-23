@@ -20,6 +20,7 @@ jobs:
         run: |
           (cd examples/site/ent && go generate .)
           (cd render && go generate .)
+          (cd examples/site/blocks && go generate .)
           git diff --exit-code
       - run: go vet ./...
       - run: go test ./...

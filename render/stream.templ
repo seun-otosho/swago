@@ -1,0 +1,10 @@
+package render
+
+import "github.com/seun-otosho/swago/block"
+
+// Stream renders a decoded StreamField in order, each block through its own Render.
+templ Stream(blocks []block.Instance) {
+	for _, b := range blocks {
+		@b.Block.Render()
+	}
+}

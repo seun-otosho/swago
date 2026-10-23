@@ -252,6 +252,34 @@ renderer) and the scaffold's `serve` handler (`cmd/swago/main.go`'s `mainTmpl`).
   page → HTML flow is covered by `cmd/swago/scaffold_test.go`'s seed-and-serve run (root
   page, child page and an unmatched path, asserting status code and body).
 
+## StreamField blocks (built 2026-10-23)
+
+Code is in `block/` (core) plus `render/stream.templ` (`Stream`, renders a decoded stream
+in order) and `examples/site/blocks/` (the reference block type: `Paragraph`).
+
+- **Same `{type, id, value}` JSON shape as Wagtail**, not a new format: `block.Decode`
+  unmarshals a JSON array of `{"type":"...","id":"...","value":{...}}` into typed,
+  registered Go blocks, in order.
+- **Same registry pattern as `page.Register[T]()`** (deliberately — one convention, not
+  two): `block.Block` is one interface, `BlockType() string` (value receiver, no field
+  access — a constant type tag, same rule as `page.Page.PageType()`) plus
+  `Render() templ.Component`. `block.Register[T]()` registers a type under its
+  `BlockType()`.
+- **Unregistered type is a hard decode error**, not a silently-dropped block: a stream
+  referencing a block type the running binary doesn't know about (e.g. after a downstream
+  project removes a block type that's still saved in old content) fails loudly rather than
+  rendering a gap. Revisit if/when editing needs a softer "unknown block" placeholder.
+- **Not wired into page serving yet.** Where a StreamField lives inside a page's JSON
+  `data` column (a `body` key, a dedicated column, …) is not decided — that's a revisions/
+  draft-publish question (FEATURE_MAP: "Revisions, draft and publish" is still only
+  "Named", no concrete schema), deliberately left for that build step rather than guessed
+  here.
+- **Testing:** `block/block_test.go` is a pure, DB-free unit test (decode, unknown-type
+  error, render-to-buffer) using a type defined in the test itself, same convention as
+  `page/registry_test.go`. `render/stream_test.go` covers multi-block ordering.
+  `examples/site/blocks/blocks_test.go` proves the reference `Paragraph` block end to end:
+  register, decode a two-block stream, render, assert the HTML.
+
 ## Review: gaps and open questions
 
 Review dated 2026-10-22, written against the planning-stage doc above. The core call (rethink over port) is sound, and the comparison table is the strongest part.
